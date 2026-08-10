@@ -88,31 +88,33 @@ model Wallet {
 }
 
 model Transaction {
-
   id String @id @default(cuid())
 
-  amount Decimal @db.Decimal(18,2)
+  amount Decimal @db.Decimal(18, 2)
+  fee    Decimal @default(0) @db.Decimal(18, 2)
 
-  fee Decimal @default(0) @db.Decimal(18,2)
-
-  type TransactionType
-
+  type   TransactionType
   status TransactionStatus @default(PENDING)
 
   reference String @unique
-
-  note String?
+  note      String?
 
   createdAt DateTime @default(now())
 
-  senderWalletId String
+  senderWalletId   String?
+  receiverWalletId String?
 
-  receiverWalletId String
+  senderWallet Wallet? @relation(
+    "SenderWallet",
+    fields: [senderWalletId],
+    references: [id]
+  )
 
-  sender Wallet @relation("SenderWallet", fields: [senderWalletId], references: [id])
-
-  receiver Wallet @relation("ReceiverWallet", fields: [receiverWalletId], references: [id])
-
+  receiverWallet Wallet? @relation(
+    "ReceiverWallet",
+    fields: [receiverWalletId],
+    references: [id]
+  )
 }
 
 model PaymentRequest {
