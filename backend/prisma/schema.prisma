@@ -43,24 +43,40 @@ enum NotificationType {
   SECURITY
 }
 
-model User {
-  id             String   @id @default(cuid())
-  fullName       String
-  email          String   @unique
-  phone          String?  @unique
-  password       String
-  role           Role     @default(USER)
-  isVerified     Boolean  @default(false)
-  isTwoFAEnabled Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+enum OtpPurpose {
+  LOGIN
+  ENABLE_2FA
+  DISABLE_2FA
+}
 
-  wallet           Wallet?
-  sentRequests     PaymentRequest[] @relation("Requester")
-  receivedRequests PaymentRequest[] @relation("Receiver")
-  notifications    Notification[]
-  fraudLogs        FraudLog[]
-  refreshTokens    RefreshToken[]
+model User {
+  id String @id @default(cuid())
+
+  fullName String
+
+  email String @unique
+
+  password String
+
+  isEmailVerified Boolean @default(false)
+
+  twoFactorEnabled Boolean @default(false)
+
+  twoFactorSecret String?
+
+  twoFactorEnabledAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  wallet Wallet?
+
+  requesterPaymentRequests PaymentRequest[] @relation("Requester")
+
+  receiverPaymentRequests PaymentRequest[] @relation("Receiver")
+
+  otpCodes OtpCode[]
 }
 
 model Wallet {
@@ -211,4 +227,32 @@ model RefreshToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+}
+
+model OtpCode {
+  id String @id @default(cuid())
+
+  userId String
+
+  codeHash String
+
+  purpose OtpPurpose
+
+  expiresAt DateTime
+
+  attempts Int @default(0)
+
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(
+    fields: [userId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  @@index([userId])
+  @@index([purpose])
+  @@index([expiresAt])
 }
