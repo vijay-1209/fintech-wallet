@@ -4,27 +4,57 @@ import helmet from "helmet";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 
-const app = express();
+// import healthRoutes from "./routes/health.routes.js";
+import authRoutes from "./routes/auth.routes.js";
+import userRoutes from "./routes/user.routes.js";
 
-app.use(helmet());
+import errorHandler from "./middlewares/error.middleware.js";
+
+const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.CLIENT_URL,
     credentials: true,
   })
 );
 
+app.use(helmet());
+
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
+
 app.use(cookieParser());
+
 app.use(morgan("dev"));
 
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "FinTech Wallet API Running",
+    message: "FinTech Wallet API",
   });
 });
+
+// app.use(
+//   "/api/v1/health",
+//   healthRoutes
+// );
+
+app.use(
+  "/api/v1/auth",
+  authRoutes
+);
+
+app.use(
+  "/api/v1/users",
+  userRoutes
+);
+
+app.use(errorHandler);
 
 export default app;
