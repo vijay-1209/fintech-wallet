@@ -3,6 +3,7 @@ import crypto from "crypto";
 
 import AppError from "../utils/AppError.js";
 import prisma from "../config/prisma.js";
+import { generateLoginOtp } from "./twoFactor.service.js";
 
 import {
   findUserByEmail,
@@ -84,6 +85,15 @@ export const loginUser = async (email, password) => {
     throw new AppError("Invalid email or password", 401);
   }
 
+  if (user.twoFactorEnabled) {
+    await generateLoginOtp(user.email);
+
+    return {
+      requiresTwoFactor: true,
+
+      userId: user.id,
+    };
+  }
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
 

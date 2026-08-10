@@ -1,4 +1,5 @@
 import asyncHandler from "../utils/asyncHandler.js";
+import { verifyLoginOtp } from "../services/twoFactor.service.js";
 
 import {
   requestEnableTwoFactor,
@@ -68,5 +69,35 @@ export const confirmDisableTwoFactorController =
 
       message:
         "Two-factor authentication disabled successfully",
+    });
+  });
+
+export const verifyLoginTwoFactor =
+  asyncHandler(async (req, res) => {
+    const {
+      userId,
+      otp,
+    } = req.body;
+
+    await verifyLoginOtp({
+      userId,
+      otp,
+    });
+
+    /*
+     * Generate the final access token here
+     * using the same token utility used by
+     * the normal login flow.
+     */
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        "Two-factor authentication verified",
+
+      data: {
+        verified: true,
+      },
     });
   });
