@@ -97,7 +97,10 @@ model Transaction {
   status TransactionStatus @default(PENDING)
 
   reference String @unique
-  note      String?
+
+  idempotencyKey String? @unique
+
+  note String?
 
   createdAt DateTime @default(now())
 
