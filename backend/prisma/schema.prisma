@@ -19,15 +19,21 @@ enum WalletStatus {
 }
 
 enum TransactionType {
-  CREDIT
-  DEBIT
-  TRANSFER
+  PAYMENT
+  TOPUP
+  WITHDRAWAL
+  REFUND
 }
 
 enum TransactionStatus {
   PENDING
-  SUCCESS
+  COMPLETED
   FAILED
+}
+
+enum LedgerEntryType {
+  DEBIT
+  CREDIT
 }
 
 enum PaymentRequestStatus {
@@ -80,60 +86,127 @@ model User {
 }
 
 model Wallet {
+  id String @id @default(cuid())
 
-  id          String   @id @default(cuid())
+  userId String @unique
 
-  balance     Decimal  @db.Decimal(18,2)
+  balance Decimal @default(0) @db.Decimal(18, 2)
 
-  currency    String   @default("INR")
+  currency String @default("INR")
 
-  status      WalletStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
 
-  createdAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  updatedAt   DateTime @updatedAt
+  user User @relation(
+    fields: [userId],
+    references: [id],
+    onDelete: Cascade
+  )
 
-  userId      String   @unique
+  senderTransactions Transaction[]
+    @relation("SenderTransactions")
 
-  user        User     @relation(fields: [userId], references: [id])
+  receiverTransactions Transaction[]
+    @relation("ReceiverTransactions")
 
-  sentTransactions Transaction[] @relation("SenderWallet")
-
-  receivedTransactions Transaction[] @relation("ReceiverWallet")
-
+  ledgerEntries LedgerEntry[]
 }
 
 model Transaction {
   id String @id @default(cuid())
 
-  amount Decimal @db.Decimal(18, 2)
-  fee    Decimal @default(0) @db.Decimal(18, 2)
-
-  type   TransactionType
-  status TransactionStatus @default(PENDING)
-
   reference String @unique
 
-  idempotencyKey String? @unique
+  type TransactionType
 
-  note String?
+  status TransactionStatus @default(PENDING)
+
+  amount Decimal @db.Decimal(18, 2)
+
+  description String?
+
+  senderWalletId String?
+
+  receiverWalletId String?
 
   createdAt DateTime @default(now())
 
-  senderWalletId   String?
-  receiverWalletId String?
+  updatedAt DateTime @updatedAt
 
   senderWallet Wallet? @relation(
-    "SenderWallet",
+    "SenderTransactions",
     fields: [senderWalletId],
-    references: [id]
+    references: [id],
+    onDelete: SetNull
   )
 
   receiverWallet Wallet? @relation(
-    "ReceiverWallet",
+    "ReceiverTransactions",
     fields: [receiverWalletId],
-    references: [id]
+    references: [id],
+    onDelete: SetNull
   )
+
+  ledgerEntries LedgerEntry[]
+
+  idempotencyKey String?
+}
+
+model LedgerEntry {
+  id String @id @default(cuid())
+
+  transactionId String
+
+  walletId String
+
+  type LedgerEntryType
+
+  amount Decimal @db.Decimal(18, 2)
+
+  balanceBefore Decimal @db.Decimal(18, 2)
+
+  balanceAfter Decimal @db.Decimal(18, 2)
+
+  createdAt DateTime @default(now())
+
+  transaction Transaction @relation(
+    fields: [transactionId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  wallet Wallet @relation(
+    fields: [walletId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  @@index([walletId])
+
+  @@index([transactionId])
+
+  @@index([createdAt])
+}
+
+model IdempotencyKey {
+  id String @id @default(cuid())
+
+  key String @unique
+
+  userId String
+
+  transactionId String?
+
+  status String @default("PROCESSING")
+
+  response Json?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model PaymentRequest {
@@ -182,28 +255,6 @@ model Notification {
   type NotificationType
 
   isRead Boolean @default(false)
-
-  createdAt DateTime @default(now())
-
-  userId String
-
-  user User @relation(fields: [userId], references: [id])
-
-}
-
-model FraudLog {
-
-  id String @id @default(cuid())
-
-  reason String
-
-  severity Int
-
-  ipAddress String?
-
-  device String?
-
-  resolved Boolean @default(false)
 
   createdAt DateTime @default(now())
 
