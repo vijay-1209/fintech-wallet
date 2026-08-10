@@ -10,6 +10,7 @@ import userRoutes from "./routes/user.routes.js";
 import walletRoutes from "./routes/wallet.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import paymentRequestRoutes from "./routes/paymentRequest.routes.js";
+import twoFactorRoutes from "./routes/twoFactor.routes.js";
 
 import errorHandler from "./middlewares/error.middleware.js";
 
@@ -72,7 +73,12 @@ app.use(
   "/api/v1/payment-requests",
   paymentRequestRoutes
 );
-  
+
+app.use(
+  "/api/v1/2fa",
+  twoFactorRoutes
+);
+
 app.use(errorHandler);
 
 export default app;
