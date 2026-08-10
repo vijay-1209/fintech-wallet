@@ -8,6 +8,7 @@ import healthRoutes from "./routes/health.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import walletRoutes from "./routes/wallet.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
 
 import errorHandler from "./middlewares/error.middleware.js";
 
@@ -61,6 +62,11 @@ app.use(
   walletRoutes
 );
 
+app.use(
+  "/api/v1/payment",
+  paymentRoutes
+);
+  
 app.use(errorHandler);
 
 export default app;
