@@ -5,13 +5,11 @@ import authenticate from "../middlewares/auth.middleware.js";
 import validate from "../middlewares/validation.middleware.js";
 
 import {
-  transferValidator,
-  idempotencyKeyValidator,
+  sendPaymentValidator,
 } from "../validators/payment.validator.js";
 
 import {
-  transferMoney,
-  getHistory,
+  sendPayment,
 } from "../controllers/payment.controller.js";
 
 const router = Router();
@@ -19,21 +17,13 @@ const router = Router();
 router.use(authenticate);
 
 router.post(
-  "/transfer",
+  "/send",
 
-  idempotencyKeyValidator,
-
-  transferValidator,
+  sendPaymentValidator,
 
   validate,
 
-  transferMoney
-);
-
-router.get(
-  "/history",
-
-  getHistory
+  sendPayment
 );
 
 export default router;

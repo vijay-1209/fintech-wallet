@@ -87,7 +87,7 @@ export const createPayment = async ({
 
     //  Validate balance
 
-    if (lockedSender.balance.lessThan(amount)) {
+    if (lockedSender.balance.lessThan(paymentAmount)) {
       throw new AppError("Insufficient wallet balance", 400);
     }
 
@@ -97,9 +97,9 @@ export const createPayment = async ({
 
     const receiverBalanceBefore = lockedReceiver.balance;
 
-    const senderBalanceAfter = senderBalanceBefore.minus(amount);
+    const senderBalanceAfter = senderBalanceBefore.minus(paymentAmount);
 
-    const receiverBalanceAfter = receiverBalanceBefore.plus(amount);
+    const receiverBalanceAfter = receiverBalanceBefore.plus(paymentAmount);
 
     //  Create transaction
 
@@ -111,7 +111,7 @@ export const createPayment = async ({
 
         status: "PENDING",
 
-        amount,
+        amount: paymentAmount,
 
         description,
 
@@ -154,7 +154,7 @@ export const createPayment = async ({
 
       type: "DEBIT",
 
-      amount,
+      amount: paymentAmount,
 
       balanceBefore: senderBalanceBefore,
 
@@ -170,7 +170,7 @@ export const createPayment = async ({
 
       type: "CREDIT",
 
-      amount,
+      amount: paymentAmount,
 
       balanceBefore: receiverBalanceBefore,
 
