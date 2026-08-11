@@ -1,273 +1,346 @@
-import crypto from "crypto";
-
 import prisma from "../config/prisma.js";
 
 import AppError from "../utils/AppError.js";
 
 import {
-  findUserByEmail,
-  findTransactionByIdempotencyKey,
-  findWalletTransactions,
-} from "../repositories/payment.repository.js";
+  generateTransactionReference,
+} from "../utils/transaction.js";
 
-const generatePaymentReference = () => {
-  return `PAY-${Date.now()}-${crypto
-    .randomBytes(8)
-    .toString("hex")
-    .toUpperCase()}`;
-};
+import {
+  lockWallet,
+} from "../repositories/walletLock.repository.js";
 
-export const sendMoney = async ({
-  senderUserId,
-  recipientEmail,
-  amount,
-  note = null,
-  idempotencyKey,
-}) => {
-  if (!idempotencyKey) {
-    throw new AppError(
-      "Idempotency key is required",
-      400
-    );
-  }
+import {
+  createLedgerEntry,
+} from "../repositories/ledger.repository.js";
 
-  if (Number(amount) <= 0) {
-    throw new AppError(
-      "Payment amount must be greater than zero",
-      400
-    );
-  }
+import {
+  findIdempotencyKey,
+  createIdempotencyKey,
+  completeIdempotencyKey,
+  failIdempotencyKey,
+} from "../repositories/idempotency.repository.js";
 
-  const existingTransaction =
-    await findTransactionByIdempotencyKey(
-      idempotencyKey
-    );
+export const createPayment =
+  async ({
+    userId,
+    receiverUserId,
+    amount,
+    description,
+    idempotencyKey,
+  }) => {
+    return prisma.$transaction(
+      async (tx) => {
+        
+          // Check idempotency
+         
 
-  if (existingTransaction) {
-    return {
-      duplicate: true,
-      transaction: existingTransaction,
-    };
-  }
+        const existingKey =
+          await findIdempotencyKey(
+            tx,
+            idempotencyKey
+          );
 
-  const recipient =
-    await findUserByEmail(
-      recipientEmail
-    );
+        if (existingKey) {
+          if (
+            existingKey.status ===
+            "COMPLETED"
+          ) {
+            return existingKey.response;
+          }
 
-  if (!recipient) {
-    throw new AppError(
-      "Recipient account not found",
-      404
-    );
-  }
+          if (
+            existingKey.status ===
+            "PROCESSING"
+          ) {
+            throw new AppError(
+              "Payment is already being processed",
+              409
+            );
+          }
+        }
 
-  if (recipient.id === senderUserId) {
-    throw new AppError(
-      "You cannot send money to yourself",
-      400
-    );
-  }
+         
+          //  Get sender wallet
+         
 
-  if (!recipient.wallet) {
-    throw new AppError(
-      "Recipient wallet not found",
-      404
-    );
-  }
-
-  const result = await prisma.$transaction(
-    async (tx) => {
-      const senderWallet =
-        await tx.wallet.findUnique({
-          where: {
-            userId: senderUserId,
-          },
-        });
-
-      if (!senderWallet) {
-        throw new AppError(
-          "Sender wallet not found",
-          404
-        );
-      }
-
-      if (
-        senderWallet.status !== "ACTIVE"
-      ) {
-        throw new AppError(
-          "Sender wallet is not active",
-          403
-        );
-      }
-
-      const receiverWallet =
-        await tx.wallet.findUnique({
-          where: {
-            id: recipient.wallet.id,
-          },
-        });
-
-      if (!receiverWallet) {
-        throw new AppError(
-          "Recipient wallet not found",
-          404
-        );
-      }
-
-      if (
-        receiverWallet.status !== "ACTIVE"
-      ) {
-        throw new AppError(
-          "Recipient wallet is not active",
-          403
-        );
-      }
-
-      /*
-       * Atomically deduct money from the sender.
-       *
-       * The balance condition is checked inside the
-       * database query, which protects against
-       * concurrent spending.
-       */
-      const senderUpdate =
-        await tx.wallet.updateMany({
-          where: {
-            id: senderWallet.id,
-
-            status: "ACTIVE",
-
-            balance: {
-              gte: amount,
+        const senderWallet =
+          await tx.wallet.findUnique({
+            where: {
+              userId,
             },
+          });
+
+        if (!senderWallet) {
+          throw new AppError(
+            "Sender wallet not found",
+            404
+          );
+        }
+
+        
+          // Get receiver wallet
+         
+
+        const receiverWallet =
+          await tx.wallet.findUnique({
+            where: {
+              userId:
+                receiverUserId,
+            },
+          });
+
+        if (!receiverWallet) {
+          throw new AppError(
+            "Receiver wallet not found",
+            404
+          );
+        }
+
+        
+          //  Prevent self payment
+         
+
+        if (
+          senderWallet.id ===
+          receiverWallet.id
+        ) {
+          throw new AppError(
+            "You cannot send money to yourself",
+            400
+          );
+        }
+
+  
+        //  Create idempotency record
+    
+
+        await createIdempotencyKey(
+          tx,
+          {
+            key: idempotencyKey,
+
+            userId,
+          }
+        );
+
+  
+        //  Lock wallets
+    
+
+        const lockedSender =
+          await lockWallet(
+            tx,
+            senderWallet.id
+          );
+
+        const lockedReceiver =
+          await lockWallet(
+            tx,
+            receiverWallet.id
+          );
+
+        if (
+          !lockedSender ||
+          !lockedReceiver
+        ) {
+          throw new AppError(
+            "Unable to lock wallets",
+            500
+          );
+        }
+
+  
+        //  Validate balance
+    
+
+        if (
+          lockedSender.balance
+            .lessThan(amount)
+        ) {
+          throw new AppError(
+            "Insufficient wallet balance",
+            400
+          );
+        }
+
+  
+        //  Calculate balances
+    
+
+        const senderBalanceBefore =
+          lockedSender.balance;
+
+        const receiverBalanceBefore =
+          lockedReceiver.balance;
+
+        const senderBalanceAfter =
+          senderBalanceBefore.minus(
+            amount
+          );
+
+        const receiverBalanceAfter =
+          receiverBalanceBefore.plus(
+            amount
+          );
+
+  
+        //  Create transaction
+    
+
+        const transaction =
+          await tx.transaction.create({
+            data: {
+              reference:
+                generateTransactionReference(),
+
+              type: "PAYMENT",
+
+              status:
+                "PENDING",
+
+              amount,
+
+              description,
+
+              senderWalletId:
+                lockedSender.id,
+
+              receiverWalletId:
+                lockedReceiver.id,
+            },
+          });
+
+  
+        //  Debit sender
+    
+
+        await tx.wallet.update({
+          where: {
+            id: lockedSender.id,
           },
 
           data: {
-            balance: {
-              decrement: amount,
-            },
+            balance:
+              senderBalanceAfter,
           },
         });
 
-      if (senderUpdate.count !== 1) {
-        throw new AppError(
-          "Insufficient wallet balance",
-          400
-        );
-      }
+  
+          // Credit receiver
+    
 
-      /*
-       * Credit recipient.
-       */
-      await tx.wallet.update({
-        where: {
-          id: receiverWallet.id,
-        },
-
-        data: {
-          balance: {
-            increment: amount,
+        await tx.wallet.update({
+          where: {
+            id: lockedReceiver.id,
           },
-        },
-      });
 
-      /*
-       * Create transaction record.
-       */
-      const transaction =
-        await tx.transaction.create({
           data: {
+            balance:
+              receiverBalanceAfter,
+          },
+        });
+
+  
+          // Sender ledger
+    
+
+        await createLedgerEntry(
+          tx,
+          {
+            transaction:
+              transaction.id,
+
+            walletId:
+              lockedSender.id,
+
+            type: "DEBIT",
+
             amount,
-            fee: 0,
 
-            type: "TRANSFER",
+            balanceBefore:
+              senderBalanceBefore,
 
-            status: "SUCCESS",
+            balanceAfter:
+              senderBalanceAfter,
+          }
+        );
 
-            reference:
-              generatePaymentReference(),
+  
+          // Receiver ledger
+    
 
-            idempotencyKey,
+        await createLedgerEntry(
+          tx,
+          {
+            transactionId:
+              transaction.id,
 
-            note,
+            walletId:
+              lockedReceiver.id,
 
-            senderWalletId:
-              senderWallet.id,
+            type: "CREDIT",
 
-            receiverWalletId:
-              receiverWallet.id,
-          },
+            amount,
 
-          include: {
-            senderWallet: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    fullName: true,
-                    email: true,
-                  },
-                },
-              },
+            balanceBefore:
+              receiverBalanceBefore,
+
+            balanceAfter:
+              receiverBalanceAfter,
+          }
+        );
+
+  
+        //  Complete transaction
+    
+
+        const completedTransaction =
+          await tx.transaction.update({
+            where: {
+              id: transaction.id,
             },
 
-            receiverWallet: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    fullName: true,
-                    email: true,
-                  },
-                },
-              },
+            data: {
+              status:
+                "COMPLETED",
             },
-          },
-        });
 
-      return transaction;
-    }
-  );
+            include: {
+              ledgerEntries: true,
+            },
+          });
 
-  return {
-    duplicate: false,
-    transaction: result,
-  };
-};
+  
+          // Response
+    
 
-export const getPaymentHistory = async ({
-  userId,
-  page = 1,
-  limit = 20,
-}) => {
-  const wallet = await prisma.wallet.findUnique({
-    where: {
-      userId,
-    },
-  });
+        const response = {
+          transaction:
+            completedTransaction,
 
-  if (!wallet) {
-    throw new AppError(
-      "Wallet not found",
-      404
+          amount,
+
+          status: "COMPLETED",
+        };
+
+  
+          // Complete idempotency
+    
+
+        await completeIdempotencyKey(
+          tx,
+          {
+            key: idempotencyKey,
+
+            transactionId:
+              transaction.id,
+
+            response,
+          }
+        );
+
+        return response;
+      }
     );
-  }
-
-  const result =
-    await findWalletTransactions(
-      wallet.id,
-      page,
-      limit
-    );
-
-  return {
-    transactions: result.transactions,
-    total: result.total,
-    page,
-    limit,
-    totalPages: Math.ceil(
-      result.total / limit
-    ),
   };
-};
