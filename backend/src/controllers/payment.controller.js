@@ -1,75 +1,50 @@
 import asyncHandler from "../utils/asyncHandler.js";
 
 import {
-  sendMoney,
-  getPaymentHistory,
+  createPayment,
 } from "../services/payment.service.js";
 
-export const transferMoney = asyncHandler(
-  async (req, res) => {
+export const sendPayment =
+  asyncHandler(async (req, res) => {
     const {
-      recipientEmail,
+      receiverUserId,
       amount,
-      note,
+      description,
     } = req.body;
 
     const idempotencyKey =
-      req.headers["idempotency-key"];
+      req.headers[
+        "idempotency-key"
+      ];
 
-    const result = await sendMoney({
-      senderUserId: req.user.id,
+    if (!idempotencyKey) {
+      return res.status(400).json({
+        success: false,
 
-      recipientEmail,
-
-      amount,
-
-      note,
-
-      idempotencyKey,
-    });
-
-    return res.status(
-      result.duplicate ? 200 : 201
-    ).json({
-      success: true,
-
-      message: result.duplicate
-        ? "Payment already processed"
-        : "Payment completed successfully",
-
-      data: {
-        transaction:
-          result.transaction,
-      },
-    });
-  }
-);
-
-export const getHistory = asyncHandler(
-  async (req, res) => {
-    const page = Math.max(
-      Number(req.query.page) || 1,
-      1
-    );
-
-    const limit = Math.min(
-      Math.max(
-        Number(req.query.limit) || 20,
-        1
-      ),
-      100
-    );
+        message:
+          "Idempotency-Key header is required",
+      });
+    }
 
     const result =
-      await getPaymentHistory({
+      await createPayment({
         userId: req.user.id,
-        page,
-        limit,
+
+        receiverUserId,
+
+        amount,
+
+        description,
+
+        idempotencyKey,
       });
 
     return res.status(200).json({
       success: true,
+
+      message:
+        "Payment completed successfully",
+
       data: result,
     });
-  }
-);
+  });
