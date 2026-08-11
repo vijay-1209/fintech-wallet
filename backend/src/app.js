@@ -11,6 +11,7 @@ import walletRoutes from "./routes/wallet.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import paymentRequestRoutes from "./routes/paymentRequest.routes.js";
 import twoFactorRoutes from "./routes/twoFactor.routes.js";
+import topUpRoutes from "./routes/topup.routes.js";
 
 import errorHandler from "./middlewares/error.middleware.js";
 
@@ -77,6 +78,11 @@ app.use(
 app.use(
   "/api/v1/2fa",
   twoFactorRoutes
+);
+
+app.use(
+  "/api/v1/topups",
+  topUpRoutes
 );
 
 app.use(errorHandler);

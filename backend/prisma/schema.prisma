@@ -55,6 +55,14 @@ enum OtpPurpose {
   DISABLE_2FA
 }
 
+enum TopUpStatus {
+  CREATED
+  PENDING
+  SUCCESS
+  FAILED
+  EXPIRED
+}
+
 model User {
   id String @id @default(cuid())
 
@@ -83,6 +91,7 @@ model User {
   receiverPaymentRequests PaymentRequest[] @relation("Receiver")
 
   otpCodes OtpCode[]
+  topUps TopUp[]
 }
 
 model Wallet {
@@ -111,6 +120,7 @@ model Wallet {
     @relation("ReceiverTransactions")
 
   ledgerEntries LedgerEntry[]
+  topUps TopUp[]
 }
 
 model Transaction {
@@ -151,6 +161,7 @@ model Transaction {
   ledgerEntries LedgerEntry[]
 
   idempotencyKey String?
+  topUp TopUp?
 }
 
 model LedgerEntry {
@@ -306,4 +317,60 @@ model OtpCode {
   @@index([userId])
   @@index([purpose])
   @@index([expiresAt])
+}
+
+model TopUp {
+  id String @id @default(cuid())
+
+  userId String
+
+  walletId String
+
+  amount Decimal @db.Decimal(18, 2)
+
+  currency String @default("INR")
+
+  status TopUpStatus @default(CREATED)
+
+  gateway String
+
+  gatewayOrderId String @unique
+
+  gatewayPaymentId String? @unique
+
+  gatewaySignature String?
+
+  failureReason String?
+
+  transactionId String? @unique
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  user User @relation(
+    fields: [userId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  wallet Wallet @relation(
+    fields: [walletId],
+    references: [id],
+    onDelete: Cascade
+  )
+
+  transaction Transaction? @relation(
+    fields: [transactionId],
+    references: [id],
+    onDelete: SetNull
+  )
+
+  @@index([userId])
+
+  @@index([walletId])
+
+  @@index([status])
+
+  @@index([createdAt])
 }
