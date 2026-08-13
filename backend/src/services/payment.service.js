@@ -7,6 +7,7 @@ import { generateTransactionReference } from "../utils/transaction.js";
 import { lockWallet } from "../repositories/walletLock.repository.js";
 
 import { createLedgerEntry } from "../repositories/ledger.repository.js";
+import { createNotification } from "../repositories/notification.repository.js";
 
 import {
   findIdempotencyKey,
@@ -190,6 +191,24 @@ export const createPayment = async ({
 
       include: {
         ledgerEntries: true,
+      },
+    });
+
+    await createNotification(tx, {
+      userId,
+
+      type: "PAYMENT_SENT",
+
+      title: "Payment Sent",
+
+      message: `Your payment of ₹${paymentAmount.toString()} was sent successfully.`,
+
+      data: {
+        transactionId: transaction.id,
+
+        reference: transaction.reference,
+
+        amount: paymentAmount.toString(),
       },
     });
 

@@ -44,9 +44,23 @@ enum PaymentRequestStatus {
 }
 
 enum NotificationType {
-  INFO
-  WARNING
+  PAYMENT_SENT
+  PAYMENT_RECEIVED
+  TOPUP_SUCCESS
+  TOPUP_FAILED
+  PAYMENT_FAILED
   SECURITY
+  SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
 }
 
 enum OtpPurpose {
@@ -92,6 +106,7 @@ model User {
 
   otpCodes OtpCode[]
   topUps TopUp[]
+  notifications Notification[]
 }
 
 model Wallet {
@@ -256,23 +271,39 @@ model PaymentRequest {
 }
 
 model Notification {
-
   id String @id @default(cuid())
+
+  userId String
+
+  type NotificationType
+
+  channel NotificationChannel @default(IN_APP)
+
+  status NotificationStatus @default(UNREAD)
 
   title String
 
   message String
 
-  type NotificationType
+  data Json?
 
-  isRead Boolean @default(false)
+  readAt DateTime?
 
   createdAt DateTime @default(now())
 
-  userId String
+  updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(
+    fields: [userId],
+    references: [id],
+    onDelete: Cascade
+  )
 
+  @@index([userId])
+
+  @@index([userId, status])
+
+  @@index([createdAt])
 }
 
 model RefreshToken {
