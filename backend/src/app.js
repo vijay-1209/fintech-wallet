@@ -17,14 +17,20 @@ import notificationRoutes from "./routes/notification.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 
 import errorHandler from "./middlewares/error.middleware.js";
+import securityHeaders from "./middlewares/security.middleware.js";
+
+import { apiRateLimiter } from "./middlewares/rateLimit.middleware.js";
 
 const app = express();
+
+app.use(securityHeaders);
+app.use(apiRateLimiter);
 
 app.use(
   cors({
     origin: process.env.CLIENT_URL,
     credentials: true,
-  })
+  }),
 );
 
 app.use(helmet());
@@ -34,7 +40,7 @@ app.use(express.json());
 app.use(
   express.urlencoded({
     extended: true,
-  })
+  }),
 );
 
 app.use(cookieParser());
@@ -48,60 +54,27 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use(
-  "/api/v1/health",
-  healthRoutes
-);
+app.use("/api/v1/health", healthRoutes);
 
-app.use(
-  "/api/v1/auth",
-  authRoutes
-);
+app.use("/api/v1/auth", authRoutes);
 
-app.use(
-  "/api/v1/users",
-  userRoutes
-);
+app.use("/api/v1/users", userRoutes);
 
-app.use(
-  "/api/v1/wallet",
-  walletRoutes
-);
+app.use("/api/v1/wallet", walletRoutes);
 
-app.use(
-  "/api/v1/payment",
-  paymentRoutes
-);
+app.use("/api/v1/payment", paymentRoutes);
 
-app.use(
-  "/api/v1/payment-requests",
-  paymentRequestRoutes
-);
+app.use("/api/v1/payment-requests", paymentRequestRoutes);
 
-app.use(
-  "/api/v1/2fa",
-  twoFactorRoutes
-);
+app.use("/api/v1/2fa", twoFactorRoutes);
 
-app.use(
-  "/api/v1/topups",
-  topUpRoutes
-);
+app.use("/api/v1/topups", topUpRoutes);
 
-app.use(
-  "/api/v1/analytics",
-  analyticsRoutes
-);
+app.use("/api/v1/analytics", analyticsRoutes);
 
-app.use(
-  "/api/v1/notifications",
-  notificationRoutes
-);
+app.use("/api/v1/notifications", notificationRoutes);
 
-app.use(
-  "/api/v1/admin",
-  adminRoutes
-);
+app.use("/api/v1/admin", adminRoutes);
 
 app.use(errorHandler);
 
