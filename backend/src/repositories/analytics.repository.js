@@ -383,3 +383,149 @@ export const getDailyAnalytics =
       result
     );
   };  
+
+export const getMonthlyAnalytics =
+  async ({
+    userId,
+    months = 6,
+  }) => {
+    const wallet =
+      await prisma.wallet.findUnique({
+        where: {
+          userId,
+        },
+
+        select: {
+          id: true,
+        },
+      });
+
+    if (!wallet) {
+      return [];
+    }
+
+    const startDate =
+      new Date();
+
+    startDate.setMonth(
+      startDate.getMonth() -
+        Number(months)
+    );
+
+    const transactions =
+      await prisma.transaction.findMany({
+        where: {
+          status:
+            "COMPLETED",
+
+          createdAt: {
+            gte: startDate,
+          },
+
+          OR: [
+            {
+              senderWalletId:
+                wallet.id,
+            },
+            {
+              receiverWalletId:
+                wallet.id,
+            },
+          ],
+        },
+
+        select: {
+          amount: true,
+
+          type: true,
+
+          senderWalletId:
+            true,
+
+          receiverWalletId:
+            true,
+
+          createdAt: true,
+        },
+
+        orderBy: {
+          createdAt:
+            "asc",
+        },
+      });
+
+    const result = {};
+
+    for (
+      const transaction
+      of transactions
+    ) {
+      const month =
+        transaction.createdAt
+          .toISOString()
+          .slice(0, 7);
+
+      if (!result[month]) {
+        result[month] = {
+          month,
+
+          sent: "0.00",
+
+          received: "0.00",
+
+          topups: "0.00",
+        };
+      }
+
+      const amount =
+        Number(
+          transaction.amount
+        );
+
+      if (
+        transaction.type ===
+          "PAYMENT" &&
+        transaction.senderWalletId ===
+          wallet.id
+      ) {
+        result[month].sent =
+          (
+            Number(
+              result[month].sent
+            ) + amount
+          ).toFixed(2);
+      }
+
+      if (
+        transaction.type ===
+          "PAYMENT" &&
+        transaction.receiverWalletId ===
+          wallet.id
+      ) {
+        result[month].received =
+          (
+            Number(
+              result[month].received
+            ) + amount
+          ).toFixed(2);
+      }
+
+      if (
+        transaction.type ===
+          "TOPUP" &&
+        transaction.receiverWalletId ===
+          wallet.id
+      ) {
+        result[month].topups =
+          (
+            Number(
+              result[month].topups
+            ) + amount
+          ).toFixed(2);
+      }
+    }
+
+    return Object.values(
+      result
+    );
+  };  

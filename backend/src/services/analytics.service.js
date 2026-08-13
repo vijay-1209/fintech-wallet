@@ -5,61 +5,52 @@ import {
   getTransactionCounts,
   getTransactionAnalytics,
   getDailyAnalytics,
+  getMonthlyAnalytics,
 } from "../repositories/analytics.repository.js";
 
-export const getDashboardAnalytics =
-  async ({
-    userId,
-    startDate,
-    endDate,
-    days = 7,
-  }) => {
-    const wallet =
-      await getWalletSummary(
-        userId
-      );
+export const getDashboardAnalytics = async ({
+  userId,
+  startDate,
+  endDate,
+  days = 7,
+}) => {
+  const wallet = await getWalletSummary(userId);
 
-    if (!wallet) {
-      throw new AppError(
-        "Wallet not found",
-        404
-      );
-    }
+  if (!wallet) {
+    throw new AppError("Wallet not found", 404);
+  }
 
-    const [
-      counts,
-      transactions,
-      daily,
-    ] = await Promise.all([
-      getTransactionCounts(
-        userId
-      ),
+  const [counts, transactions, daily, monthly] = await Promise.all([
+    getTransactionCounts(userId),
 
-      getTransactionAnalytics({
-        userId,
-        startDate,
-        endDate,
-      }),
+    getTransactionAnalytics({
+      userId,
+      startDate,
+      endDate,
+    }),
 
-      getDailyAnalytics({
-        userId,
-        days,
-      }),
-    ]);
+    getDailyAnalytics({
+      userId,
+      days,
+    }),
 
-    return {
-      wallet: {
-        balance:
-          wallet.balance.toString(),
+    getMonthlyAnalytics({
+      userId,
+      months: 6,
+    }),
+  ]);
+  return {
+    wallet: {
+      balance: wallet.balance.toString(),
 
-        currency:
-          wallet.currency,
-      },
+      currency: wallet.currency,
+    },
 
-      transactions: counts,
+    transactions: counts,
 
-      volume: transactions,
+    volume: transactions,
 
-      daily,
-    };
+    daily,
+    monthly,
   };
+};
