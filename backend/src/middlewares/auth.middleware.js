@@ -4,33 +4,20 @@ import { findUserById } from "../repositories/auth.repository.js";
 
 const authenticate = async (req, res, next) => {
   try {
-    const authorization =
-      req.headers.authorization;
+    const authorization = req.headers.authorization;
 
-    if (
-      !authorization ||
-      !authorization.startsWith("Bearer ")
-    ) {
-      throw new AppError(
-        "Authentication required",
-        401
-      );
+    if (!authorization || !authorization.startsWith("Bearer ")) {
+      throw new AppError("Authentication required", 401);
     }
 
-    const token =
-      authorization.split(" ")[1];
+    const token = authorization.split(" ")[1];
 
-    const decoded =
-      verifyAccessToken(token);
+    const decoded = verifyAccessToken(token);
 
-    const user =
-      await findUserById(decoded.userId);
+    const user = await findUserById(decoded.userId);
 
     if (!user) {
-      throw new AppError(
-        "User account not found",
-        401
-      );
+      throw new AppError("User account not found", 401);
     }
 
     req.user = {
@@ -44,21 +31,11 @@ const authenticate = async (req, res, next) => {
     next();
   } catch (error) {
     if (error.name === "JsonWebTokenError") {
-      return next(
-        new AppError(
-          "Invalid access token",
-          401
-        )
-      );
+      return next(new AppError("Invalid access token", 401));
     }
 
     if (error.name === "TokenExpiredError") {
-      return next(
-        new AppError(
-          "Access token expired",
-          401
-        )
-      );
+      return next(new AppError("Access token expired", 401));
     }
 
     next(error);
