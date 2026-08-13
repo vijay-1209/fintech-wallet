@@ -12,6 +12,7 @@ import paymentRoutes from "./routes/payment.routes.js";
 import paymentRequestRoutes from "./routes/paymentRequest.routes.js";
 import twoFactorRoutes from "./routes/twoFactor.routes.js";
 import topUpRoutes from "./routes/topup.routes.js";
+import analyticsRoutes from "./routes/analytics.routes.js";
 
 import errorHandler from "./middlewares/error.middleware.js";
 
@@ -83,6 +84,11 @@ app.use(
 app.use(
   "/api/v1/topups",
   topUpRoutes
+);
+
+app.use(
+  "/api/v1/analytics",
+  analyticsRoutes
 );
 
 app.use(errorHandler);
