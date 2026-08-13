@@ -94,6 +94,10 @@ model User {
 
   twoFactorEnabledAt DateTime?
 
+  loginAttempts Int @default(0)
+
+  lockedUntil DateTime?
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -154,6 +158,8 @@ model Transaction {
   senderWalletId String?
 
   receiverWalletId String?
+
+  idempotencyKey String? @unique
 
   createdAt DateTime @default(now())
 
@@ -402,6 +408,32 @@ model TopUp {
   @@index([walletId])
 
   @@index([status])
+
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  userId String?
+
+  action String
+
+  resource String?
+
+  resourceId String?
+
+  ipAddress String?
+
+  userAgent String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+
+  @@index([action])
 
   @@index([createdAt])
 }
