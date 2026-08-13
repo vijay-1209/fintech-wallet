@@ -2,8 +2,6 @@ import { useState } from "react";
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
-import api from "../services/api";
-
 import { useAuth } from "../context/AuthContext";
 
 const Login = () => {
@@ -11,49 +9,70 @@ const Login = () => {
 
   const location = useLocation();
 
-  const { login } = useAuth();
+  const { login, authLoading } = useAuth();
 
   const [form, setForm] = useState({
     email: "",
     password: "",
   });
 
+  const registered = location.state?.registered;
+
+  {
+    registered && (
+      <div
+        role="status"
+        className="mb-5 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700"
+      >
+        Account created successfully. You can now sign in.
+      </div>
+    );
+  }
+
   const [error, setError] = useState("");
 
-  const [loading, setLoading] = useState(false);
-
   const handleChange = (event) => {
-    setForm({
-      ...form,
-      [event.target.name]: event.target.value,
-    });
+    const { name, value } = event.target;
+
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     setError("");
-    setLoading(true);
+
+    if (!form.email.trim()) {
+      setError("Email is required.");
+
+      return;
+    }
+
+    if (!form.password) {
+      setError("Password is required.");
+
+      return;
+    }
 
     try {
-      const response = await api.post("/auth/login", form);
-
-      const data = response.data.data;
-
-      login({
-        user: data.user,
-        accessToken: data.accessToken,
+      await login({
+        email: form.email.trim(),
+        password: form.password,
       });
 
-      const from = location.state?.from?.pathname || "/dashboard";
+      const redirectPath = location.state?.from?.pathname || "/dashboard";
 
-      navigate(from, {
+      navigate(redirectPath, {
         replace: true,
       });
     } catch (error) {
-      setError(error.response?.data?.message || "Unable to login");
-    } finally {
-      setLoading(false);
+      const message =
+        error.response?.data?.message || "Invalid email or password.";
+
+      setError(message);
     }
   };
 
@@ -61,58 +80,89 @@ const Login = () => {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-8">
+          <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-lg font-bold text-white">
+            F
+          </div>
+
           <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
 
-          <p className="mt-2 text-sm text-slate-500">Sign in to your wallet</p>
+          <p className="mt-2 text-sm text-slate-500">
+            Sign in to your FinWallet account.
+          </p>
         </div>
 
         {error && (
-          <div className="mb-5 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          <div
+            role="alert"
+            className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          >
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
+            <label
+              htmlFor="email"
+              className="mb-2 block text-sm font-medium text-slate-700"
+            >
               Email
             </label>
 
             <input
-              type="email"
+              id="email"
               name="email"
+              type="email"
               value={form.email}
               onChange={handleChange}
-              required
               autoComplete="email"
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
               placeholder="you@example.com"
+              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-100"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Password
-            </label>
+            <div className="mb-2 flex items-center justify-between">
+              <label
+                htmlFor="password"
+                className="text-sm font-medium text-slate-700"
+              >
+                Password
+              </label>
+
+              <Link
+                to="/forgot-password"
+                className="text-xs font-medium text-slate-600 hover:text-slate-900"
+              >
+                Forgot password?
+              </Link>
+            </div>
 
             <input
-              type="password"
+              id="password"
               name="password"
+              type="password"
               value={form.password}
               onChange={handleChange}
-              required
               autoComplete="current-password"
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-slate-900"
               placeholder="••••••••"
+              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-100"
             />
           </div>
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={authLoading}
+            className="flex w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {authLoading ? (
+              <>
+                <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                Signing in...
+              </>
+            ) : (
+              "Sign in"
+            )}
           </button>
         </form>
 
@@ -120,7 +170,7 @@ const Login = () => {
           Don't have an account?{" "}
           <Link
             to="/register"
-            className="font-medium text-slate-900 hover:underline"
+            className="font-semibold text-slate-900 hover:underline"
           >
             Create account
           </Link>

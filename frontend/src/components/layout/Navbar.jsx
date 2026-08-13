@@ -3,22 +3,26 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
-
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const { user, logout } = useAuth();
 
-    navigate("/login");
+  const handleLogout = async () => {
+    await logout();
+
+    navigate("/login", {
+      replace: true,
+    });
   };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-8">
       <div>
-        <p className="text-sm text-slate-500">Welcome back</p>
+        <p className="text-xs text-slate-500">Welcome back</p>
 
-        <p className="font-semibold text-slate-900">{user?.name || "User"}</p>
+        <p className="font-semibold text-slate-900">
+          {user?.name || user?.email || "User"}
+        </p>
       </div>
 
       <button
