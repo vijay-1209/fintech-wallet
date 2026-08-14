@@ -18,6 +18,7 @@ import PaymentResult from "./pages/PaymentResult";
 import Transactions from "./pages/Transactions";
 import TransactionDetails from "./pages/TransactionDetails";
 import Security from "./pages/Security";
+import Analytics from "./pages/Analytics";
 
 const App = () => {
   return (
