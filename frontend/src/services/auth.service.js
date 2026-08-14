@@ -1,13 +1,13 @@
 import api from "./api";
 
-export const registerUser = async (payload) => {
-  const response = await api.post("/auth/register", payload);
+export const login = async (credentials) => {
+  const response = await api.post("/auth/login", credentials);
 
   return response.data;
 };
 
-export const loginUser = async (payload) => {
-  const response = await api.post("/auth/login", payload);
+export const register = async (userData) => {
+  const response = await api.post("/auth/register", userData);
 
   return response.data;
 };
@@ -18,8 +18,8 @@ export const getCurrentUser = async () => {
   return response.data;
 };
 
-export const logoutUser = async () => {
-  const response = await api.post("/auth/logout");
+export const logout = () => {
+  localStorage.removeItem("accessToken");
 
-  return response.data;
+  localStorage.removeItem("user");
 };

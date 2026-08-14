@@ -20,7 +20,6 @@ api.interceptors.request.use(
 
     return config;
   },
-
   (error) => {
     return Promise.reject(error);
   },
@@ -29,15 +28,13 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
 
-  async (error) => {
+  (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("accessToken");
 
       localStorage.removeItem("user");
 
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
-      }
+      window.location.href = "/login";
     }
 
     return Promise.reject(error);
