@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import AmountInput from "../components/payment/AmountInput";
 
-import { validateAmount } from "../utils/paymentValidation";
+import { validateAmount } from "../utils/payment.validation";
 
 const AddMoney = () => {
   const navigate = useNavigate();

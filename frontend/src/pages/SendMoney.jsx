@@ -8,7 +8,7 @@ import {
   validateAmount,
   validateRecipient,
   validateDescription,
-} from "../utils/paymentValidation";
+} from "../utils/payment.validation";
 
 const SendMoney = () => {
   const navigate = useNavigate();
