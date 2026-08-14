@@ -15,6 +15,8 @@ import AddMoneyConfirm from "./pages/AddMoneyConfirm";
 import SendMoney from "./pages/SendMoney";
 import SendMoneyConfirm from "./pages/SendMoneyConfirm";
 import PaymentResult from "./pages/PaymentResult";
+import Transactions from "./pages/Transactions";
+import TransactionDetails from "./pages/TransactionDetails";
 
 const App = () => {
   return (
@@ -35,7 +37,12 @@ const App = () => {
 
               <Route path="/payments" element={<div>Payments</div>} />
 
-              <Route path="/transactions" element={<div>Transactions</div>} />
+              <Route path="/transactions" element={<Transactions />} />
+
+              <Route
+                path="/transactions/:transactionId"
+                element={<TransactionDetails />}
+              />
 
               <Route path="/analytics" element={<div>Analytics</div>} />
 
