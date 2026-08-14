@@ -2,121 +2,64 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 import {
   getCurrentUser,
-  loginUser,
-  logoutUser,
+  logout as logoutService,
 } from "../services/auth.service";
 
 const AuthContext = createContext(null);
-
-const ACCESS_TOKEN_KEY = "accessToken";
-
-const USER_KEY = "user";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
   const [loading, setLoading] = useState(true);
 
-  const [authLoading, setAuthLoading] = useState(false);
+  const loadUser = async () => {
+    const token = localStorage.getItem("accessToken");
 
-  const saveAuthData = ({ user, accessToken }) => {
-    if (accessToken) {
-      localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    if (!token) {
+      setLoading(false);
+      return;
     }
-
-    if (user) {
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
-
-      setUser(user);
-    }
-  };
-
-  const clearAuthData = () => {
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-
-    localStorage.removeItem(USER_KEY);
-
-    setUser(null);
-  };
-
-  const login = async (credentials) => {
-    setAuthLoading(true);
 
     try {
-      const response = await loginUser(credentials);
+      const response = await getCurrentUser();
 
-      const data = response.data;
+      setUser(response.data);
 
-      saveAuthData({
-        user: data.user,
-        accessToken: data.accessToken,
-      });
-
-      return {
-        success: true,
-        data,
-      };
-    } catch (error) {
-      throw error;
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    try {
-      await logoutUser();
+      localStorage.setItem("user", JSON.stringify(response.data));
     } catch {
-      // Clear local authentication
-      // even if the server request fails.
+      logoutService();
+      setUser(null);
     } finally {
-      clearAuthData();
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      const token = localStorage.getItem(ACCESS_TOKEN_KEY);
-
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await getCurrentUser();
-
-        setUser(response.data);
-      } catch {
-        clearAuthData();
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
+    loadUser();
   }, []);
 
-  const isAuthenticated = Boolean(user);
+  const login = (authData) => {
+    const { accessToken, user } = authData;
+
+    localStorage.setItem("accessToken", accessToken);
+
+    localStorage.setItem("user", JSON.stringify(user));
+
+    setUser(user);
+  };
+
+  const logout = () => {
+    logoutService();
+    setUser(null);
+  };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-
         loading,
-
-        authLoading,
-
-        isAuthenticated,
-
         login,
-
         logout,
-
-        saveAuthData,
-
-        clearAuthData,
       }}
     >
       {children}
