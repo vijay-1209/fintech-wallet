@@ -1,7 +1,15 @@
 import api from "./api";
 
-export const createPayment = async (payload) => {
-  const response = await api.post("/payments", payload);
+import { generateIdempotencyKey } from "../utils/idempotency";
+
+export const createPayment = async (payload, idempotencyKey) => {
+  const key = idempotencyKey || generateIdempotencyKey();
+
+  const response = await api.post("/payments", payload, {
+    headers: {
+      "Idempotency-Key": key,
+    },
+  });
 
   return response.data;
 };
