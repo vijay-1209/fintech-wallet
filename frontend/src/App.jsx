@@ -10,6 +10,11 @@ import AppLayout from "./layouts/AppLayout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import AddMoney from "./pages/AddMoney";
+import AddMoneyConfirm from "./pages/AddMoneyConfirm";
+import SendMoney from "./pages/SendMoney";
+import SendMoneyConfirm from "./pages/SendMoneyConfirm";
+import PaymentResult from "./pages/PaymentResult";
 
 const App = () => {
   return (
@@ -35,6 +40,22 @@ const App = () => {
               <Route path="/analytics" element={<div>Analytics</div>} />
 
               <Route path="/profile" element={<div>Profile</div>} />
+
+              <Route path="/wallet/add-money" element={<AddMoney />} />
+
+              <Route
+                path="/wallet/add-money/confirm"
+                element={<AddMoneyConfirm />}
+              />
+
+              <Route path="/payments/send" element={<SendMoney />} />
+
+              <Route
+                path="/payments/send/confirm"
+                element={<SendMoneyConfirm />}
+              />
+
+              <Route path="/payments/result" element={<PaymentResult />} />
             </Route>
           </Route>
 
