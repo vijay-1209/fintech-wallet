@@ -17,6 +17,7 @@ import SendMoneyConfirm from "./pages/SendMoneyConfirm";
 import PaymentResult from "./pages/PaymentResult";
 import Transactions from "./pages/Transactions";
 import TransactionDetails from "./pages/TransactionDetails";
+import Security from "./pages/Security";
 
 const App = () => {
   return (
@@ -63,6 +64,8 @@ const App = () => {
               />
 
               <Route path="/payments/result" element={<PaymentResult />} />
+
+              <Route path="/security" element={<Security />} />
             </Route>
           </Route>
 

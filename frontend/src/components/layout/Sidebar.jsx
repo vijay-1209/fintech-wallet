@@ -25,6 +25,10 @@ const navigation = [
     name: "Profile",
     path: "/profile",
   },
+  {
+    name: "Security",
+    path: "/security",
+  }
 ];
 
 const Sidebar = () => {
