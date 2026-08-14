@@ -26,6 +26,10 @@ const navigation = [
     path: "/profile",
   },
   {
+    name: "Settings",
+    path: "/settings",
+  },
+  {
     name: "Analytics",
     path: "/analytics",
   },

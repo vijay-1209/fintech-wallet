@@ -19,6 +19,8 @@ import Transactions from "./pages/Transactions";
 import TransactionDetails from "./pages/TransactionDetails";
 import Security from "./pages/Security";
 import Analytics from "./pages/Analytics";
+import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 
 const App = () => {
   return (
@@ -49,6 +51,7 @@ const App = () => {
               <Route path="/analytics" element={<div>Analytics</div>} />
 
               <Route path="/profile" element={<div>Profile</div>} />
+              <Route path="/settings" element={<Settings />} />
 
               <Route path="/wallet/add-money" element={<AddMoney />} />
 
