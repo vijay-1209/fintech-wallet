@@ -13,7 +13,7 @@ import {
 } from "../validators/auth.validator.js";
 
 import validate from "../middlewares/validation.middleware.js";
-import { authRateLimiter } from "../middlewares/rateLimit.middleware.js";
+import { apiRateLimiter } from "../middlewares/rateLimit.middleware.js";
 
 const router = Router();
 

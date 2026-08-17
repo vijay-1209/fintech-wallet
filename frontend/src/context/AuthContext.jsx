@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import {
   getCurrentUser,
   logout as logoutService,
-} from "../services/auth.service";
+} from "../services/auth.service.js";
 
 const AuthContext = createContext(null);
 

@@ -1,24 +1,4 @@
-import rateLimit from "express-rate-limit";
-
-import { securityConfig } from "../config/security.js";
-
-export const apiRateLimiter = rateLimit({
-  windowMs: securityConfig.rateLimit.windowMs,
-
-  max: securityConfig.rateLimit.max,
-
-  standardHeaders: true,
-
-  legacyHeaders: false,
-
-  message: {
-    success: false,
-
-    message: "Too many requests. Please try again later.",
-  },
-});
-
-import rateLimit from "express-rate-limit";
+import { rateLimit } from "express-rate-limit";
 
 import { securityConfig } from "../config/security.js";
 
