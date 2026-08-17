@@ -17,9 +17,9 @@ import { apiRateLimiter } from "../middlewares/rateLimit.middleware.js";
 
 const router = Router();
 
-router.post("/register", registerValidator, validate, authRateLimiter, register);
+router.post("/register", registerValidator, validate, apiRateLimiter, register);
 
-router.post("/login", loginValidator, validate, authRateLimiter, login);
+router.post("/login", loginValidator, validate, apiRateLimiter, login);
 
 router.post("/refresh", refresh);
 

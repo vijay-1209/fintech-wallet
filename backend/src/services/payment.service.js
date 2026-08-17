@@ -16,6 +16,9 @@ import {
   failIdempotencyKey,
 } from "../repositories/idempotency.repository.js";
 
+/**
+ * Create peer-to-peer payment
+ */
 export const createPayment = async ({
   userId,
   receiverUserId,
@@ -23,228 +26,288 @@ export const createPayment = async ({
   description,
   idempotencyKey,
 }) => {
+  /*
+   * Validate payment amount before starting
+   * the database transaction.
+   */
+  const paymentAmount = Number(amount);
+
+  if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+    throw new AppError("Payment amount must be greater than zero", 400);
+  }
+
+  /*
+   * Idempotency key is required to prevent
+   * duplicate payments.
+   */
+  if (!idempotencyKey) {
+    throw new AppError("Idempotency key is required", 400);
+  }
+
   return prisma.$transaction(async (tx) => {
-    // Check idempotency
+    try {
+      // --------------------------------------------------
+      // Check idempotency
+      // --------------------------------------------------
 
-    const existingKey = await findIdempotencyKey(tx, idempotencyKey);
+      const existingKey = await findIdempotencyKey(tx, idempotencyKey);
 
-    if (existingKey) {
-      if (existingKey.status === "COMPLETED") {
-        return existingKey.response;
+      if (existingKey) {
+        if (existingKey.status === "COMPLETED") {
+          return existingKey.response;
+        }
+
+        if (existingKey.status === "PROCESSING") {
+          throw new AppError("Payment is already being processed", 409);
+        }
       }
 
-      if (existingKey.status === "PROCESSING") {
-        throw new AppError("Payment is already being processed", 409);
+      // --------------------------------------------------
+      // Get sender wallet
+      // --------------------------------------------------
+
+      const senderWallet = await tx.wallet.findUnique({
+        where: {
+          userId,
+        },
+      });
+
+      if (!senderWallet) {
+        throw new AppError("Sender wallet not found", 404);
       }
-    }
 
-    //  Get sender wallet
+      // --------------------------------------------------
+      // Get receiver wallet
+      // --------------------------------------------------
 
-    const senderWallet = await tx.wallet.findUnique({
-      where: {
+      const receiverWallet = await tx.wallet.findUnique({
+        where: {
+          userId: receiverUserId,
+        },
+      });
+
+      if (!receiverWallet) {
+        throw new AppError("Receiver wallet not found", 404);
+      }
+
+      // --------------------------------------------------
+      // Prevent self payment
+      // --------------------------------------------------
+
+      if (senderWallet.id === receiverWallet.id) {
+        throw new AppError("You cannot send money to yourself", 400);
+      }
+
+      // --------------------------------------------------
+      // Create idempotency record
+      // --------------------------------------------------
+
+      await createIdempotencyKey(tx, {
+        key: idempotencyKey,
         userId,
-      },
-    });
+      });
 
-    if (!senderWallet) {
-      throw new AppError("Sender wallet not found", 404);
-    }
+      // --------------------------------------------------
+      // Lock wallets
+      // --------------------------------------------------
 
-    // Get receiver wallet
+      const lockedSender = await lockWallet(tx, senderWallet.id);
 
-    const receiverWallet = await tx.wallet.findUnique({
-      where: {
-        userId: receiverUserId,
-      },
-    });
+      const lockedReceiver = await lockWallet(tx, receiverWallet.id);
 
-    if (!receiverWallet) {
-      throw new AppError("Receiver wallet not found", 404);
-    }
+      if (!lockedSender || !lockedReceiver) {
+        throw new AppError("Unable to lock wallets", 500);
+      }
 
-    //  Prevent self payment
+      // --------------------------------------------------
+      // Validate balance
+      // --------------------------------------------------
 
-    if (senderWallet.id === receiverWallet.id) {
-      throw new AppError("You cannot send money to yourself", 400);
-    }
+      if (lockedSender.balance.lessThan(paymentAmount)) {
+        throw new AppError("Insufficient wallet balance", 400);
+      }
 
-    //  Create idempotency record
+      // --------------------------------------------------
+      // Calculate balances
+      // --------------------------------------------------
 
-    await createIdempotencyKey(tx, {
-      key: idempotencyKey,
+      const senderBalanceBefore = lockedSender.balance;
 
-      userId,
-    });
+      const receiverBalanceBefore = lockedReceiver.balance;
 
-    //  Lock wallets
+      const senderBalanceAfter = senderBalanceBefore.minus(paymentAmount);
 
-    const lockedSender = await lockWallet(tx, senderWallet.id);
+      const receiverBalanceAfter = receiverBalanceBefore.plus(paymentAmount);
 
-    const lockedReceiver = await lockWallet(tx, receiverWallet.id);
+      // --------------------------------------------------
+      // Create transaction
+      // --------------------------------------------------
 
-    if (!lockedSender || !lockedReceiver) {
-      throw new AppError("Unable to lock wallets", 500);
-    }
+      const transaction = await tx.transaction.create({
+        data: {
+          reference: generateTransactionReference(),
 
-    //  Validate balance
+          type: "PAYMENT",
 
-    if (lockedSender.balance.lessThan(paymentAmount)) {
-      throw new AppError("Insufficient wallet balance", 400);
-    }
+          status: "PENDING",
 
-    //  Calculate balances
+          amount: paymentAmount,
 
-    const senderBalanceBefore = lockedSender.balance;
+          description,
 
-    const receiverBalanceBefore = lockedReceiver.balance;
+          senderWalletId: lockedSender.id,
 
-    const senderBalanceAfter = senderBalanceBefore.minus(paymentAmount);
+          receiverWalletId: lockedReceiver.id,
+        },
+      });
 
-    const receiverBalanceAfter = receiverBalanceBefore.plus(paymentAmount);
+      // --------------------------------------------------
+      // Debit sender
+      // --------------------------------------------------
 
-    //  Create transaction
+      await tx.wallet.update({
+        where: {
+          id: lockedSender.id,
+        },
 
-    const transaction = await tx.transaction.create({
-      data: {
-        reference: generateTransactionReference(),
+        data: {
+          balance: senderBalanceAfter,
+        },
+      });
 
-        type: "PAYMENT",
+      // --------------------------------------------------
+      // Credit receiver
+      // --------------------------------------------------
 
-        status: "PENDING",
+      await tx.wallet.update({
+        where: {
+          id: lockedReceiver.id,
+        },
+
+        data: {
+          balance: receiverBalanceAfter,
+        },
+      });
+
+      // --------------------------------------------------
+      // Sender ledger
+      // --------------------------------------------------
+
+      await createLedgerEntry(tx, {
+        transactionId: transaction.id,
+
+        walletId: lockedSender.id,
+
+        type: "DEBIT",
 
         amount: paymentAmount,
 
-        description,
+        balanceBefore: senderBalanceBefore,
 
-        senderWalletId: lockedSender.id,
+        balanceAfter: senderBalanceAfter,
+      });
 
-        receiverWalletId: lockedReceiver.id,
-      },
-    });
+      // --------------------------------------------------
+      // Receiver ledger
+      // --------------------------------------------------
 
-    //  Debit sender
-
-    await tx.wallet.update({
-      where: {
-        id: lockedSender.id,
-      },
-
-      data: {
-        balance: senderBalanceAfter,
-      },
-    });
-
-    // Credit receiver
-
-    await tx.wallet.update({
-      where: {
-        id: lockedReceiver.id,
-      },
-
-      data: {
-        balance: receiverBalanceAfter,
-      },
-    });
-
-    // Sender ledger
-
-    await createLedgerEntry(tx, {
-      transaction: transaction.id,
-
-      walletId: lockedSender.id,
-
-      type: "DEBIT",
-
-      amount: paymentAmount,
-
-      balanceBefore: senderBalanceBefore,
-
-      balanceAfter: senderBalanceAfter,
-    });
-
-    // Receiver ledger
-
-    await createLedgerEntry(tx, {
-      transactionId: transaction.id,
-
-      walletId: lockedReceiver.id,
-
-      type: "CREDIT",
-
-      amount: paymentAmount,
-
-      balanceBefore: receiverBalanceBefore,
-
-      balanceAfter: receiverBalanceAfter,
-    });
-
-    //  Complete transaction
-
-    const completedTransaction = await tx.transaction.update({
-      where: {
-        id: transaction.id,
-      },
-
-      data: {
-        status: "COMPLETED",
-      },
-
-      include: {
-        ledgerEntries: true,
-      },
-    });
-
-    await createNotification(tx, {
-      userId,
-
-      type: "PAYMENT_SENT",
-
-      title: "Payment Sent",
-
-      message: `Your payment of ₹${paymentAmount.toString()} was sent successfully.`,
-
-      data: {
+      await createLedgerEntry(tx, {
         transactionId: transaction.id,
 
-        reference: transaction.reference,
+        walletId: lockedReceiver.id,
 
-        amount: paymentAmount.toString(),
-      },
-    });
+        type: "CREDIT",
 
-    // Response
+        amount: paymentAmount,
 
-    const response = {
-      transaction: completedTransaction,
+        balanceBefore: receiverBalanceBefore,
 
-      amount,
+        balanceAfter: receiverBalanceAfter,
+      });
 
-      status: "COMPLETED",
-    };
+      // --------------------------------------------------
+      // Complete transaction
+      // --------------------------------------------------
 
-    // Complete idempotency
+      const completedTransaction = await tx.transaction.update({
+        where: {
+          id: transaction.id,
+        },
 
-    await completeIdempotencyKey(tx, {
-      key: idempotencyKey,
+        data: {
+          status: "COMPLETED",
+        },
 
-      transactionId: transaction.id,
+        include: {
+          ledgerEntries: true,
+        },
+      });
 
-      response,
-    });
+      // --------------------------------------------------
+      // Create notification
+      // --------------------------------------------------
 
-    return response;
+      await createNotification(tx, {
+        userId,
+
+        type: "PAYMENT_SENT",
+
+        title: "Payment Sent",
+
+        message: `Your payment of ₹${paymentAmount.toString()} was sent successfully.`,
+
+        data: {
+          transactionId: transaction.id,
+
+          reference: transaction.reference,
+
+          amount: paymentAmount.toString(),
+        },
+      });
+
+      // --------------------------------------------------
+      // Response
+      // --------------------------------------------------
+
+      const response = {
+        transaction: completedTransaction,
+
+        amount: paymentAmount,
+
+        status: "COMPLETED",
+      };
+
+      // --------------------------------------------------
+      // Complete idempotency
+      // --------------------------------------------------
+
+      await completeIdempotencyKey(tx, {
+        key: idempotencyKey,
+
+        transactionId: transaction.id,
+
+        response,
+      });
+
+      return response;
+    } catch (error) {
+      /*
+       * Mark idempotency request as failed
+       * when payment processing fails.
+       */
+      try {
+        await failIdempotencyKey(tx, {
+          key: idempotencyKey,
+        });
+      } catch (idempotencyError) {
+        /*
+         * Do not hide the original
+         * payment error.
+         */
+        console.error("Failed to update idempotency status:", idempotencyError);
+      }
+
+      throw error;
+    }
   });
 };
-const paymentAmount = new Prisma.Decimal(amount);
-
-if (lockedSender.balance.lessThan(paymentAmount)) {
-  throw new AppError("Insufficient wallet balance", 400);
-}
-
-const senderBalanceBefore = lockedSender.balance;
-
-const receiverBalanceBefore = lockedReceiver.balance;
-
-const senderBalanceAfter = senderBalanceBefore.minus(paymentAmount);
-
-const receiverBalanceAfter = receiverBalanceBefore.plus(paymentAmount);

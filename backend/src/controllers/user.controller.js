@@ -3,44 +3,117 @@ import asyncHandler from "../utils/asyncHandler.js";
 import {
   getUserProfile,
   updateUserProfile,
-  getUserWallet,
+  changePassword,
+  updateUserNotifications,
+  removeUser,
 } from "../services/user.service.js";
 
-//  Get authenticated user's profile
-//  GET /api/v1/users/profile
- 
-export const getProfile = asyncHandler(async (req, res) => {
-  const user = await getUserProfile(req.user.id);
+/**
+ * Get currently authenticated user
+ * GET /api/users/me
+ */
+export const getCurrentUser = async (req, res, next) => {
+  try {
+    const user = await getUserProfile(req.user.id);
 
-  return res.status(200).json({
-    success: true,
-    data: user,
-  });
-});
+    return res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
+/**
+ * Get user profile
+ * GET /api/users/profile
+ */
+export const getProfile = async (req, res, next) => {
+  try {
+    const user = await getUserProfile(req.user.id);
 
-  // Update authenticated user's profile
-  // PATCH /api/v1/users/profile
- 
-export const updateProfile = asyncHandler(async (req, res) => {
-  const user = await updateUserProfile(req.user.id, req.body);
+    return res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
-  return res.status(200).json({
-    success: true,
-    message: "Profile updated successfully",
-    data: user,
-  });
-});
+/**
+ * Update user profile
+ * PUT /api/users/profile
+ */
+export const updateProfile = async (req, res, next) => {
+  try {
+    const user = await updateUserProfile(req.user.id, req.body);
 
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
-  // Get authenticated user's wallet
-  // GET /api/v1/users/wallet
- 
-export const getWallet = asyncHandler(async (req, res) => {
-  const wallet = await getUserWallet(req.user.id);
+/**
+ * Change user password
+ * PUT /api/users/change-password
+ */
+export const changeUserPassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
 
-  return res.status(200).json({
-    success: true,
-    data: wallet,
-  });
-});
+    const result = await changePassword(
+      req.user.id,
+      currentPassword,
+      newPassword,
+    );
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update notification preferences
+ * PUT /api/users/notifications
+ */
+export const updateNotifications = async (req, res, next) => {
+  try {
+    const preferences = await updateUserNotifications(req.user.id, req.body);
+
+    return res.status(200).json({
+      success: true,
+      message: "Notification preferences updated successfully",
+      data: preferences,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Delete current user account
+ * DELETE /api/users/account
+ */
+export const deleteAccount = async (req, res, next) => {
+  try {
+    const result = await removeUser(req.user.id);
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

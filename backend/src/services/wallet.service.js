@@ -6,7 +6,7 @@ import AppError from "../utils/AppError.js";
 
 import {
   findWalletByUserId,
-  updateWalletStatus,
+  updateWalletBalance,
   findTransactionsByWalletId,
 } from "../repositories/wallet.repository.js";
 

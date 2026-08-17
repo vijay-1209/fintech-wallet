@@ -1,34 +1,51 @@
 import { Router } from "express";
 
 import authenticate from "../middlewares/auth.middleware.js";
-
 import validate from "../middlewares/validation.middleware.js";
 
 import {
-  createTopUpValidator,
-} from "../validators/topup.validator.js";
+  createTopUp,
+  verifyTopUpPayment,
+} from "../controllers/topup.controller.js";
 
 import {
-  createTopUp,
-} from "../controllers/topup.controller.js";
+  createTopUpValidator,
+  verifyTopUpPaymentValidator,
+} from "../validators/topup.validator.js";
 
 const router = Router();
 
+/*
+|--------------------------------------------------------------------------
+| Authentication
+|--------------------------------------------------------------------------
+*/
+
 router.use(authenticate);
+
+/*
+|--------------------------------------------------------------------------
+| Create Top Up
+|--------------------------------------------------------------------------
+| POST /api/topups
+|--------------------------------------------------------------------------
+*/
+
+router.post("/", createTopUpValidator, validate, createTopUp);
+
+/*
+|--------------------------------------------------------------------------
+| Verify Top Up Payment
+|--------------------------------------------------------------------------
+| POST /api/topups/verify
+|--------------------------------------------------------------------------
+*/
 
 router.post(
   "/verify",
-  verifyTopUpPayment
-);
-
-router.post(
-  "/create-order",
-
-  createTopUpValidator,
-
+  verifyTopUpPaymentValidator,
   validate,
-
-  createTopUp
+  verifyTopUpPayment,
 );
 
 export default router;

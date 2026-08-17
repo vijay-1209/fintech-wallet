@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
   output   = "../src/generated/prisma"
 }
 
@@ -108,9 +108,10 @@ model User {
 
   receiverPaymentRequests PaymentRequest[] @relation("Receiver")
 
-  otpCodes OtpCode[]
-  topUps TopUp[]
+  otpCodes      OtpCode[]
+  topUps        TopUp[]
   notifications Notification[]
+  refreshTokens RefreshToken[]
 }
 
 model Wallet {
@@ -126,20 +127,14 @@ model Wallet {
 
   updatedAt DateTime @updatedAt
 
-  user User @relation(
-    fields: [userId],
-    references: [id],
-    onDelete: Cascade
-  )
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  senderTransactions Transaction[]
-    @relation("SenderTransactions")
+  senderTransactions Transaction[] @relation("SenderTransactions")
 
-  receiverTransactions Transaction[]
-    @relation("ReceiverTransactions")
+  receiverTransactions Transaction[] @relation("ReceiverTransactions")
 
   ledgerEntries LedgerEntry[]
-  topUps TopUp[]
+  topUps        TopUp[]
 }
 
 model Transaction {
@@ -159,30 +154,18 @@ model Transaction {
 
   receiverWalletId String?
 
-  idempotencyKey String? @unique
-
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
 
-  senderWallet Wallet? @relation(
-    "SenderTransactions",
-    fields: [senderWalletId],
-    references: [id],
-    onDelete: SetNull
-  )
+  senderWallet Wallet? @relation("SenderTransactions", fields: [senderWalletId], references: [id], onDelete: SetNull)
 
-  receiverWallet Wallet? @relation(
-    "ReceiverTransactions",
-    fields: [receiverWalletId],
-    references: [id],
-    onDelete: SetNull
-  )
+  receiverWallet Wallet? @relation("ReceiverTransactions", fields: [receiverWalletId], references: [id], onDelete: SetNull)
 
   ledgerEntries LedgerEntry[]
 
   idempotencyKey String?
-  topUp TopUp?
+  topUp          TopUp?
 }
 
 model LedgerEntry {
@@ -202,22 +185,12 @@ model LedgerEntry {
 
   createdAt DateTime @default(now())
 
-  transaction Transaction @relation(
-    fields: [transactionId],
-    references: [id],
-    onDelete: Cascade
-  )
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
-  wallet Wallet @relation(
-    fields: [walletId],
-    references: [id],
-    onDelete: Cascade
-  )
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
   @@index([walletId])
-
   @@index([transactionId])
-
   @@index([createdAt])
 }
 
@@ -256,19 +229,11 @@ model PaymentRequest {
   updatedAt DateTime @updatedAt
 
   requesterId String
-  receiverId String
+  receiverId  String
 
-  requester User @relation(
-    "Requester",
-    fields: [requesterId],
-    references: [id]
-  )
+  requester User @relation("Requester", fields: [requesterId], references: [id])
 
-  receiver User @relation(
-    "Receiver",
-    fields: [receiverId],
-    references: [id]
-  )
+  receiver User @relation("Receiver", fields: [receiverId], references: [id])
 
   @@index([requesterId])
   @@index([receiverId])
@@ -299,21 +264,14 @@ model Notification {
 
   updatedAt DateTime @updatedAt
 
-  user User @relation(
-    fields: [userId],
-    references: [id],
-    onDelete: Cascade
-  )
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-
   @@index([userId, status])
-
   @@index([createdAt])
 }
 
 model RefreshToken {
-
   id String @id @default(cuid())
 
   token String @unique
@@ -325,7 +283,6 @@ model RefreshToken {
   userId String
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
 }
 
 model OtpCode {
@@ -345,11 +302,7 @@ model OtpCode {
 
   createdAt DateTime @default(now())
 
-  user User @relation(
-    fields: [userId],
-    references: [id],
-    onDelete: Cascade
-  )
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([purpose])
@@ -385,30 +338,15 @@ model TopUp {
 
   updatedAt DateTime @updatedAt
 
-  user User @relation(
-    fields: [userId],
-    references: [id],
-    onDelete: Cascade
-  )
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  wallet Wallet @relation(
-    fields: [walletId],
-    references: [id],
-    onDelete: Cascade
-  )
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
-  transaction Transaction? @relation(
-    fields: [transactionId],
-    references: [id],
-    onDelete: SetNull
-  )
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
   @@index([userId])
-
   @@index([walletId])
-
   @@index([status])
-
   @@index([createdAt])
 }
 
@@ -432,8 +370,6 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([userId])
-
   @@index([action])
-
   @@index([createdAt])
 }

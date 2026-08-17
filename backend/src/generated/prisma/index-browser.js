@@ -124,36 +124,60 @@ exports.Prisma.UserScalarFieldEnum = {
   id: 'id',
   fullName: 'fullName',
   email: 'email',
-  phone: 'phone',
   password: 'password',
-  role: 'role',
-  isVerified: 'isVerified',
-  isTwoFAEnabled: 'isTwoFAEnabled',
+  isEmailVerified: 'isEmailVerified',
+  twoFactorEnabled: 'twoFactorEnabled',
+  twoFactorSecret: 'twoFactorSecret',
+  twoFactorEnabledAt: 'twoFactorEnabledAt',
+  loginAttempts: 'loginAttempts',
+  lockedUntil: 'lockedUntil',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
 
 exports.Prisma.WalletScalarFieldEnum = {
   id: 'id',
+  userId: 'userId',
   balance: 'balance',
   currency: 'currency',
-  status: 'status',
   createdAt: 'createdAt',
-  updatedAt: 'updatedAt',
-  userId: 'userId'
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.TransactionScalarFieldEnum = {
   id: 'id',
-  amount: 'amount',
-  fee: 'fee',
+  reference: 'reference',
   type: 'type',
   status: 'status',
-  reference: 'reference',
-  note: 'note',
-  createdAt: 'createdAt',
+  amount: 'amount',
+  description: 'description',
   senderWalletId: 'senderWalletId',
-  receiverWalletId: 'receiverWalletId'
+  receiverWalletId: 'receiverWalletId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  idempotencyKey: 'idempotencyKey'
+};
+
+exports.Prisma.LedgerEntryScalarFieldEnum = {
+  id: 'id',
+  transactionId: 'transactionId',
+  walletId: 'walletId',
+  type: 'type',
+  amount: 'amount',
+  balanceBefore: 'balanceBefore',
+  balanceAfter: 'balanceAfter',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.IdempotencyKeyScalarFieldEnum = {
+  id: 'id',
+  key: 'key',
+  userId: 'userId',
+  transactionId: 'transactionId',
+  status: 'status',
+  response: 'response',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.PaymentRequestScalarFieldEnum = {
@@ -161,30 +185,25 @@ exports.Prisma.PaymentRequestScalarFieldEnum = {
   amount: 'amount',
   note: 'note',
   status: 'status',
+  expiresAt: 'expiresAt',
   createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
   requesterId: 'requesterId',
   receiverId: 'receiverId'
 };
 
 exports.Prisma.NotificationScalarFieldEnum = {
   id: 'id',
+  userId: 'userId',
+  type: 'type',
+  channel: 'channel',
+  status: 'status',
   title: 'title',
   message: 'message',
-  type: 'type',
-  isRead: 'isRead',
+  data: 'data',
+  readAt: 'readAt',
   createdAt: 'createdAt',
-  userId: 'userId'
-};
-
-exports.Prisma.FraudLogScalarFieldEnum = {
-  id: 'id',
-  reason: 'reason',
-  severity: 'severity',
-  ipAddress: 'ipAddress',
-  device: 'device',
-  resolved: 'resolved',
-  createdAt: 'createdAt',
-  userId: 'userId'
+  updatedAt: 'updatedAt'
 };
 
 exports.Prisma.RefreshTokenScalarFieldEnum = {
@@ -195,9 +214,54 @@ exports.Prisma.RefreshTokenScalarFieldEnum = {
   userId: 'userId'
 };
 
+exports.Prisma.OtpCodeScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  codeHash: 'codeHash',
+  purpose: 'purpose',
+  expiresAt: 'expiresAt',
+  attempts: 'attempts',
+  verifiedAt: 'verifiedAt',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.TopUpScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  walletId: 'walletId',
+  amount: 'amount',
+  currency: 'currency',
+  status: 'status',
+  gateway: 'gateway',
+  gatewayOrderId: 'gatewayOrderId',
+  gatewayPaymentId: 'gatewayPaymentId',
+  gatewaySignature: 'gatewaySignature',
+  failureReason: 'failureReason',
+  transactionId: 'transactionId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.AuditLogScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  action: 'action',
+  resource: 'resource',
+  resourceId: 'resourceId',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
+};
+
+exports.Prisma.NullableJsonNullValueInput = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull
 };
 
 exports.Prisma.QueryMode = {
@@ -209,27 +273,28 @@ exports.Prisma.NullsOrder = {
   first: 'first',
   last: 'last'
 };
-exports.Role = exports.$Enums.Role = {
-  USER: 'USER',
-  ADMIN: 'ADMIN'
-};
 
-exports.WalletStatus = exports.$Enums.WalletStatus = {
-  ACTIVE: 'ACTIVE',
-  FROZEN: 'FROZEN',
-  CLOSED: 'CLOSED'
+exports.Prisma.JsonNullValueFilter = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull,
+  AnyNull: Prisma.AnyNull
 };
-
 exports.TransactionType = exports.$Enums.TransactionType = {
-  CREDIT: 'CREDIT',
-  DEBIT: 'DEBIT',
-  TRANSFER: 'TRANSFER'
+  PAYMENT: 'PAYMENT',
+  TOPUP: 'TOPUP',
+  WITHDRAWAL: 'WITHDRAWAL',
+  REFUND: 'REFUND'
 };
 
 exports.TransactionStatus = exports.$Enums.TransactionStatus = {
   PENDING: 'PENDING',
-  SUCCESS: 'SUCCESS',
+  COMPLETED: 'COMPLETED',
   FAILED: 'FAILED'
+};
+
+exports.LedgerEntryType = exports.$Enums.LedgerEntryType = {
+  DEBIT: 'DEBIT',
+  CREDIT: 'CREDIT'
 };
 
 exports.PaymentRequestStatus = exports.$Enums.PaymentRequestStatus = {
@@ -240,19 +305,51 @@ exports.PaymentRequestStatus = exports.$Enums.PaymentRequestStatus = {
 };
 
 exports.NotificationType = exports.$Enums.NotificationType = {
-  INFO: 'INFO',
-  WARNING: 'WARNING',
-  SECURITY: 'SECURITY'
+  PAYMENT_SENT: 'PAYMENT_SENT',
+  PAYMENT_RECEIVED: 'PAYMENT_RECEIVED',
+  TOPUP_SUCCESS: 'TOPUP_SUCCESS',
+  TOPUP_FAILED: 'TOPUP_FAILED',
+  PAYMENT_FAILED: 'PAYMENT_FAILED',
+  SECURITY: 'SECURITY',
+  SYSTEM: 'SYSTEM'
+};
+
+exports.NotificationChannel = exports.$Enums.NotificationChannel = {
+  IN_APP: 'IN_APP',
+  EMAIL: 'EMAIL'
+};
+
+exports.NotificationStatus = exports.$Enums.NotificationStatus = {
+  UNREAD: 'UNREAD',
+  READ: 'READ'
+};
+
+exports.OtpPurpose = exports.$Enums.OtpPurpose = {
+  LOGIN: 'LOGIN',
+  ENABLE_2FA: 'ENABLE_2FA',
+  DISABLE_2FA: 'DISABLE_2FA'
+};
+
+exports.TopUpStatus = exports.$Enums.TopUpStatus = {
+  CREATED: 'CREATED',
+  PENDING: 'PENDING',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+  EXPIRED: 'EXPIRED'
 };
 
 exports.Prisma.ModelName = {
   User: 'User',
   Wallet: 'Wallet',
   Transaction: 'Transaction',
+  LedgerEntry: 'LedgerEntry',
+  IdempotencyKey: 'IdempotencyKey',
   PaymentRequest: 'PaymentRequest',
   Notification: 'Notification',
-  FraudLog: 'FraudLog',
-  RefreshToken: 'RefreshToken'
+  RefreshToken: 'RefreshToken',
+  OtpCode: 'OtpCode',
+  TopUp: 'TopUp',
+  AuditLog: 'AuditLog'
 };
 
 /**

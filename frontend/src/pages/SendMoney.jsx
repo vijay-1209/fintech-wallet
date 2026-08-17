@@ -7,7 +7,6 @@ import AmountInput from "../components/payment/AmountInput";
 import {
   validateAmount,
   validateRecipient,
-  validateDescription,
 } from "../utils/payment.validation";
 
 const SendMoney = () => {

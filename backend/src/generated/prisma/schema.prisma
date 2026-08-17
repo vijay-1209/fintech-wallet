@@ -19,15 +19,21 @@ enum WalletStatus {
 }
 
 enum TransactionType {
-  CREDIT
-  DEBIT
-  TRANSFER
+  PAYMENT
+  TOPUP
+  WITHDRAWAL
+  REFUND
 }
 
 enum TransactionStatus {
   PENDING
-  SUCCESS
+  COMPLETED
   FAILED
+}
+
+enum LedgerEntryType {
+  DEBIT
+  CREDIT
 }
 
 enum PaymentRequestStatus {
@@ -38,77 +44,174 @@ enum PaymentRequestStatus {
 }
 
 enum NotificationType {
-  INFO
-  WARNING
+  PAYMENT_SENT
+  PAYMENT_RECEIVED
+  TOPUP_SUCCESS
+  TOPUP_FAILED
+  PAYMENT_FAILED
   SECURITY
+  SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
+enum OtpPurpose {
+  LOGIN
+  ENABLE_2FA
+  DISABLE_2FA
+}
+
+enum TopUpStatus {
+  CREATED
+  PENDING
+  SUCCESS
+  FAILED
+  EXPIRED
 }
 
 model User {
-  id             String   @id @default(cuid())
-  fullName       String
-  email          String   @unique
-  phone          String?  @unique
-  password       String
-  role           Role     @default(USER)
-  isVerified     Boolean  @default(false)
-  isTwoFAEnabled Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  wallet           Wallet?
-  sentRequests     PaymentRequest[] @relation("Requester")
-  receivedRequests PaymentRequest[] @relation("Receiver")
-  notifications    Notification[]
-  fraudLogs        FraudLog[]
-  refreshTokens    RefreshToken[]
-}
-
-model Wallet {
   id String @id @default(cuid())
 
-  balance Decimal @db.Decimal(18, 2)
+  fullName String
 
-  currency String @default("INR")
+  email String @unique
 
-  status WalletStatus @default(ACTIVE)
+  password String
+
+  isEmailVerified Boolean @default(false)
+
+  twoFactorEnabled Boolean @default(false)
+
+  twoFactorSecret String?
+
+  twoFactorEnabledAt DateTime?
+
+  loginAttempts Int @default(0)
+
+  lockedUntil DateTime?
 
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
 
+  wallet Wallet?
+
+  requesterPaymentRequests PaymentRequest[] @relation("Requester")
+
+  receiverPaymentRequests PaymentRequest[] @relation("Receiver")
+
+  otpCodes      OtpCode[]
+  topUps        TopUp[]
+  notifications Notification[]
+  refreshTokens RefreshToken[]
+}
+
+model Wallet {
+  id String @id @default(cuid())
+
   userId String @unique
 
-  user User @relation(fields: [userId], references: [id])
+  balance Decimal @default(0) @db.Decimal(18, 2)
 
-  sentTransactions Transaction[] @relation("SenderWallet")
+  currency String @default("INR")
 
-  receivedTransactions Transaction[] @relation("ReceiverWallet")
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  senderTransactions Transaction[] @relation("SenderTransactions")
+
+  receiverTransactions Transaction[] @relation("ReceiverTransactions")
+
+  ledgerEntries LedgerEntry[]
+  topUps        TopUp[]
 }
 
 model Transaction {
   id String @id @default(cuid())
 
-  amount Decimal @db.Decimal(18, 2)
-
-  fee Decimal @default(0) @db.Decimal(18, 2)
+  reference String @unique
 
   type TransactionType
 
   status TransactionStatus @default(PENDING)
 
-  reference String @unique
+  amount Decimal @db.Decimal(18, 2)
 
-  note String?
+  description String?
+
+  senderWalletId String?
+
+  receiverWalletId String?
 
   createdAt DateTime @default(now())
 
-  senderWalletId String
+  updatedAt DateTime @updatedAt
 
-  receiverWalletId String
+  senderWallet Wallet? @relation("SenderTransactions", fields: [senderWalletId], references: [id], onDelete: SetNull)
 
-  sender Wallet @relation("SenderWallet", fields: [senderWalletId], references: [id])
+  receiverWallet Wallet? @relation("ReceiverTransactions", fields: [receiverWalletId], references: [id], onDelete: SetNull)
 
-  receiver Wallet @relation("ReceiverWallet", fields: [receiverWalletId], references: [id])
+  ledgerEntries LedgerEntry[]
+
+  idempotencyKey String?
+  topUp          TopUp?
+}
+
+model LedgerEntry {
+  id String @id @default(cuid())
+
+  transactionId String
+
+  walletId String
+
+  type LedgerEntryType
+
+  amount Decimal @db.Decimal(18, 2)
+
+  balanceBefore Decimal @db.Decimal(18, 2)
+
+  balanceAfter Decimal @db.Decimal(18, 2)
+
+  createdAt DateTime @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([transactionId])
+  @@index([createdAt])
+}
+
+model IdempotencyKey {
+  id String @id @default(cuid())
+
+  key String @unique
+
+  userId String
+
+  transactionId String?
+
+  status String @default("PROCESSING")
+
+  response Json?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model PaymentRequest {
@@ -120,53 +223,52 @@ model PaymentRequest {
 
   status PaymentRequestStatus @default(PENDING)
 
+  expiresAt DateTime?
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   requesterId String
-
-  receiverId String
+  receiverId  String
 
   requester User @relation("Requester", fields: [requesterId], references: [id])
 
   receiver User @relation("Receiver", fields: [receiverId], references: [id])
+
+  @@index([requesterId])
+  @@index([receiverId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Notification {
   id String @id @default(cuid())
 
+  userId String
+
+  type NotificationType
+
+  channel NotificationChannel @default(IN_APP)
+
+  status NotificationStatus @default(UNREAD)
+
   title String
 
   message String
 
-  type NotificationType
+  data Json?
 
-  isRead Boolean @default(false)
-
-  createdAt DateTime @default(now())
-
-  userId String
-
-  user User @relation(fields: [userId], references: [id])
-}
-
-model FraudLog {
-  id String @id @default(cuid())
-
-  reason String
-
-  severity Int
-
-  ipAddress String?
-
-  device String?
-
-  resolved Boolean @default(false)
+  readAt DateTime?
 
   createdAt DateTime @default(now())
 
-  userId String
+  updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([createdAt])
 }
 
 model RefreshToken {
@@ -181,4 +283,93 @@ model RefreshToken {
   userId String
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OtpCode {
+  id String @id @default(cuid())
+
+  userId String
+
+  codeHash String
+
+  purpose OtpPurpose
+
+  expiresAt DateTime
+
+  attempts Int @default(0)
+
+  verifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([purpose])
+  @@index([expiresAt])
+}
+
+model TopUp {
+  id String @id @default(cuid())
+
+  userId String
+
+  walletId String
+
+  amount Decimal @db.Decimal(18, 2)
+
+  currency String @default("INR")
+
+  status TopUpStatus @default(CREATED)
+
+  gateway String
+
+  gatewayOrderId String @unique
+
+  gatewayPaymentId String? @unique
+
+  gatewaySignature String?
+
+  failureReason String?
+
+  transactionId String? @unique
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([walletId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  userId String?
+
+  action String
+
+  resource String?
+
+  resourceId String?
+
+  ipAddress String?
+
+  userAgent String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
 }

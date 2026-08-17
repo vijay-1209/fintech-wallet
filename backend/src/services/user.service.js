@@ -1,18 +1,29 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
-import User from "../models/user.model.js";
+import {
+  createUser,
+  findUserById,
+  findUserByEmail,
+  findUserWithPassword,
+  emailExists,
+  updateUser,
+  updatePassword,
+  updateNotificationPreferences,
+  updateTwoFactor,
+  deleteUser,
+} from "../models/user.model.js";
 
 /**
- * Get user by ID
+ * Get user profile
  */
-export const getUserById = async (userId) => {
-  const user = await User.findById(userId).select(
-    "-password -twoFactorSecret -backupCodes",
-  );
+export const getUserProfile = async (userId) => {
+  const user = await findUserById(userId);
 
   if (!user) {
     const error = new Error("User not found");
+
     error.statusCode = 404;
+
     throw error;
   }
 
@@ -20,40 +31,26 @@ export const getUserById = async (userId) => {
 };
 
 /**
+ * Get user by ID
+ */
+export const getUserById = async (userId) => {
+  return await getUserProfile(userId);
+};
+
+/**
  * Get user by email
  */
 export const getUserByEmail = async (email) => {
-  const user = await User.findOne({
-    email: email.toLowerCase().trim(),
-  }).select("-password -twoFactorSecret -backupCodes");
-
-  return user;
+  return await findUserByEmail(email);
 };
 
 /**
- * Get user by email including password
- *
- * Used internally for authentication.
+ * Create/register user
  */
-export const getUserForAuthentication = async (email) => {
-  const user = await User.findOne({
-    email: email.toLowerCase().trim(),
-  }).select("+password +twoFactorSecret +backupCodes");
+export const registerUser = async ({ name, email, password, phone }) => {
+  const exists = await emailExists(email);
 
-  return user;
-};
-
-/**
- * Create a new user
- */
-export const createUser = async ({ name, email, password, phone }) => {
-  const normalizedEmail = email.toLowerCase().trim();
-
-  const existingUser = await User.findOne({
-    email: normalizedEmail,
-  });
-
-  if (existingUser) {
+  if (exists) {
     const error = new Error("An account with this email already exists");
 
     error.statusCode = 409;
@@ -63,59 +60,19 @@ export const createUser = async ({ name, email, password, phone }) => {
 
   const hashedPassword = await bcrypt.hash(password, 12);
 
-  const user = await User.create({
-    name: name.trim(),
-    email: normalizedEmail,
+  return await createUser({
+    name,
+    email,
     password: hashedPassword,
-    phone: phone?.trim() || null,
-  });
-
-  return user.toObject({
-    transform: (_, ret) => {
-      delete ret.password;
-      delete ret.twoFactorSecret;
-      delete ret.backupCodes;
-
-      return ret;
-    },
+    phone,
   });
 };
 
 /**
  * Update user profile
  */
-export const updateUser = async (userId, updateData) => {
-  const allowedFields = ["name", "phone"];
-
-  const updates = {};
-
-  for (const field of allowedFields) {
-    if (updateData[field] !== undefined) {
-      updates[field] =
-        typeof updateData[field] === "string"
-          ? updateData[field].trim()
-          : updateData[field];
-    }
-  }
-
-  if (Object.keys(updates).length === 0) {
-    const error = new Error("No valid fields provided for update");
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  const user = await User.findByIdAndUpdate(
-    userId,
-    {
-      $set: updates,
-    },
-    {
-      new: true,
-      runValidators: true,
-    },
-  ).select("-password -twoFactorSecret -backupCodes");
+export const updateUserProfile = async (userId, data) => {
+  const user = await findUserById(userId);
 
   if (!user) {
     const error = new Error("User not found");
@@ -125,14 +82,14 @@ export const updateUser = async (userId, updateData) => {
     throw error;
   }
 
-  return user;
+  return await updateUser(userId, data);
 };
 
 /**
- * Change user password
+ * Change password
  */
 export const changePassword = async (userId, currentPassword, newPassword) => {
-  const user = await User.findById(userId).select("+password");
+  const user = await findUserWithPassword(userId);
 
   if (!user) {
     const error = new Error("User not found");
@@ -142,9 +99,9 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
     throw error;
   }
 
-  const passwordMatches = await bcrypt.compare(currentPassword, user.password);
+  const validPassword = await bcrypt.compare(currentPassword, user.password);
 
-  if (!passwordMatches) {
+  if (!validPassword) {
     const error = new Error("Current password is incorrect");
 
     error.statusCode = 401;
@@ -164,9 +121,7 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
 
   const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-  user.password = hashedPassword;
-
-  await user.save();
+  await updatePassword(userId, hashedPassword);
 
   return {
     message: "Password changed successfully",
@@ -176,40 +131,8 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
 /**
  * Update notification preferences
  */
-export const updateNotificationPreferences = async (userId, preferences) => {
-  const allowedFields = [
-    "emailNotifications",
-    "paymentNotifications",
-    "securityNotifications",
-    "marketingNotifications",
-  ];
-
-  const updates = {};
-
-  for (const field of allowedFields) {
-    if (preferences[field] !== undefined) {
-      updates[`notificationPreferences.${field}`] = Boolean(preferences[field]);
-    }
-  }
-
-  if (Object.keys(updates).length === 0) {
-    const error = new Error("No valid notification preferences provided");
-
-    error.statusCode = 400;
-
-    throw error;
-  }
-
-  const user = await User.findByIdAndUpdate(
-    userId,
-    {
-      $set: updates,
-    },
-    {
-      new: true,
-      runValidators: true,
-    },
-  ).select("-password -twoFactorSecret -backupCodes");
+export const updateUserNotifications = async (userId, preferences) => {
+  const user = await findUserById(userId);
 
   if (!user) {
     const error = new Error("User not found");
@@ -219,25 +142,17 @@ export const updateNotificationPreferences = async (userId, preferences) => {
     throw error;
   }
 
-  return user;
+  return await updateNotificationPreferences(userId, preferences);
 };
 
 /**
- * Update 2FA status
+ * Update two-factor authentication
  */
-export const updateTwoFactorStatus = async (userId, enabled) => {
-  const user = await User.findByIdAndUpdate(
-    userId,
-    {
-      $set: {
-        twoFactorEnabled: Boolean(enabled),
-      },
-    },
-    {
-      new: true,
-      runValidators: true,
-    },
-  ).select("-password -twoFactorSecret -backupCodes");
+export const updateUserTwoFactor = async (
+  userId,
+  { enabled, secret = null, backupCodes = [] },
+) => {
+  const user = await findUserById(userId);
 
   if (!user) {
     const error = new Error("User not found");
@@ -247,14 +162,18 @@ export const updateTwoFactorStatus = async (userId, enabled) => {
     throw error;
   }
 
-  return user;
+  return await updateTwoFactor(userId, {
+    enabled,
+    secret,
+    backupCodes,
+  });
 };
 
 /**
  * Delete user account
  */
-export const deleteUser = async (userId) => {
-  const user = await User.findById(userId);
+export const removeUser = async (userId) => {
+  const user = await findUserById(userId);
 
   if (!user) {
     const error = new Error("User not found");
@@ -264,7 +183,7 @@ export const deleteUser = async (userId) => {
     throw error;
   }
 
-  await User.findByIdAndDelete(userId);
+  await deleteUser(userId);
 
   return {
     message: "User account deleted successfully",
