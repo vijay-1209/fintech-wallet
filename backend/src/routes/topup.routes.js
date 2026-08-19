@@ -10,42 +10,22 @@ import {
 
 import {
   createTopUpValidator,
-  verifyTopUpPaymentValidator,
+  // verifyTopUpPaymentValidator,
 } from "../validators/topup.validator.js";
 
 const router = Router();
 
-/*
-|--------------------------------------------------------------------------
-| Authentication
-|--------------------------------------------------------------------------
-*/
-
 router.use(authenticate);
-
-/*
-|--------------------------------------------------------------------------
-| Create Top Up
-|--------------------------------------------------------------------------
-| POST /api/topups
-|--------------------------------------------------------------------------
-*/
 
 router.post("/", createTopUpValidator, validate, createTopUp);
 
 /*
-|--------------------------------------------------------------------------
-| Verify Top Up Payment
-|--------------------------------------------------------------------------
-| POST /api/topups/verify
-|--------------------------------------------------------------------------
-*/
-
 router.post(
   "/verify",
   verifyTopUpPaymentValidator,
   validate,
   verifyTopUpPayment,
 );
+*/
 
 export default router;
